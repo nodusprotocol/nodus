@@ -1,0 +1,582 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Nodus Protocol API — community-powered Web3 security layer
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: scan
+    description: Threat scanning operations
+  - name: threats
+    description: Threat intelligence feed
+  - name: reports
+    description: Community threat reports
+  - name: guardians
+    description: Guardian network and reputation
+  - name: ai
+    description: Nodus AI security assistant
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /scan:
+    post:
+      operationId: scanTarget
+      tags: [scan]
+      summary: Scan a target for security threats
+      description: Scans a website, wallet, contract, token, or social account using VirusTotal and GoPlus, returning a real security score.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInput"
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /scan/stats:
+    get:
+      operationId: getScanStats
+      tags: [scan]
+      summary: Platform-wide security statistics
+      description: Aggregated counts of threats detected, reports submitted, and guardians active.
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformStats"
+  /threats:
+    get:
+      operationId: listThreats
+      tags: [threats]
+      summary: Public threat feed
+      description: Returns verified threats from the community database.
+      parameters:
+        - name: threatType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          required: false
+          description: Only include threats created on or after this ISO 8601 timestamp.
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          required: false
+          description: Only include threats created on or before this ISO 8601 timestamp.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of threats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Threat"
+  /reports:
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List community reports
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: wallet
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+    post:
+      operationId: submitReport
+      tags: [reports]
+      summary: Submit a new threat report
+      description: A Guardian submits a threat report tied to their wallet address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /guardians/connect:
+    post:
+      operationId: connectGuardian
+      tags: [guardians]
+      summary: Register or fetch a Guardian by wallet
+      description: Registers a wallet as a Guardian, or returns the existing Guardian profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuardianConnectInput"
+      responses:
+        "200":
+          description: Guardian profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guardian"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /guardians/leaderboard:
+    get:
+      operationId: getGuardianLeaderboard
+      tags: [guardians]
+      summary: Top Guardians by reputation
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Guardian"
+  /guardians/{wallet}:
+    get:
+      operationId: getGuardian
+      tags: [guardians]
+      summary: Get a Guardian profile by wallet
+      parameters:
+        - name: wallet
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Guardian profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuardianProfile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /ai/analyze:
+    post:
+      operationId: analyzeWithAI
+      tags: [ai]
+      summary: Nodus AI security analysis
+      description: Analyzes a target using GPT-4 combined with real threat intelligence, returning plain-language risk analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AIAnalyzeInput"
+      responses:
+        "200":
+          description: AI analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIAnalyzeResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    ScanInput:
+      type: object
+      properties:
+        target:
+          type: string
+          description: The URL, wallet address, contract address, token address, or social handle to scan.
+        targetType:
+          type: string
+          enum: [website, wallet, contract, token, social]
+      required:
+        - target
+        - targetType
+    ScanSourceResult:
+      type: object
+      properties:
+        source:
+          type: string
+        available:
+          type: boolean
+        score:
+          type: integer
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - source
+        - available
+    ScanResult:
+      type: object
+      properties:
+        target:
+          type: string
+        targetType:
+          type: string
+        score:
+          type: integer
+          description: Overall security score 0-100 (higher is safer).
+        verdict:
+          type: string
+          enum: [safe, caution, danger]
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScanSourceResult"
+        communityReports:
+          type: integer
+        knownThreat:
+          type: boolean
+      required:
+        - target
+        - targetType
+        - score
+        - verdict
+        - sources
+        - communityReports
+        - knownThreat
+    PlatformStats:
+      type: object
+      properties:
+        totalThreats:
+          type: integer
+        totalReports:
+          type: integer
+        totalGuardians:
+          type: integer
+        phishingCount:
+          type: integer
+        drainerCount:
+          type: integer
+        scamCount:
+          type: integer
+      required:
+        - totalThreats
+        - totalReports
+        - totalGuardians
+        - phishingCount
+        - drainerCount
+        - scamCount
+    Threat:
+      type: object
+      properties:
+        id:
+          type: integer
+        target:
+          type: string
+        targetType:
+          type: string
+        threatType:
+          type: string
+        severity:
+          type: string
+        score:
+          type: integer
+        source:
+          type: string
+        description:
+          type: string
+          nullable: true
+        evidenceUrl:
+          type: string
+          nullable: true
+        verified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - target
+        - targetType
+        - threatType
+        - severity
+        - score
+        - source
+        - verified
+        - createdAt
+    ReportInput:
+      type: object
+      properties:
+        reporterWallet:
+          type: string
+        target:
+          type: string
+        targetType:
+          type: string
+          enum: [website, wallet, contract, token, social]
+        threatType:
+          type: string
+          enum: [phishing, drainer, scam, rugpull, fake_token, fake_social, malicious_contract, other]
+        description:
+          type: string
+        evidenceUrl:
+          type: string
+        message:
+          type: string
+          description: The exact UTF-8 message that was signed by the reporter's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message` produced by the reporter's Phantom wallet.
+      required:
+        - reporterWallet
+        - target
+        - targetType
+        - threatType
+        - message
+        - signature
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+        reporterWallet:
+          type: string
+        target:
+          type: string
+        targetType:
+          type: string
+        threatType:
+          type: string
+        description:
+          type: string
+          nullable: true
+        evidenceUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - reporterWallet
+        - target
+        - targetType
+        - threatType
+        - status
+        - createdAt
+    GuardianConnectInput:
+      type: object
+      properties:
+        walletAddress:
+          type: string
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the wallet to prove ownership.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message` produced by the wallet's Phantom wallet.
+      required:
+        - walletAddress
+        - message
+        - signature
+    Guardian:
+      type: object
+      properties:
+        id:
+          type: integer
+        walletAddress:
+          type: string
+        tier:
+          type: string
+        reputation:
+          type: integer
+        reportsSubmitted:
+          type: integer
+        reportsApproved:
+          type: integer
+        joinedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - walletAddress
+        - tier
+        - reputation
+        - reportsSubmitted
+        - reportsApproved
+        - joinedAt
+    ReputationEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        guardianWallet:
+          type: string
+        eventType:
+          type: string
+        points:
+          type: integer
+        reason:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - guardianWallet
+        - eventType
+        - points
+        - createdAt
+    GuardianProfile:
+      type: object
+      properties:
+        guardian:
+          $ref: "#/components/schemas/Guardian"
+        recentReports:
+          type: array
+          items:
+            $ref: "#/components/schemas/Report"
+        reputationHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReputationEvent"
+      required:
+        - guardian
+        - recentReports
+        - reputationHistory
+    AIAnalyzeInput:
+      type: object
+      properties:
+        target:
+          type: string
+        targetType:
+          type: string
+          enum: [website, wallet, contract, token, social]
+        question:
+          type: string
+          description: Optional user question, e.g. "Is this safe?"
+      required:
+        - target
+        - targetType
+    AIAnalyzeResult:
+      type: object
+      properties:
+        target:
+          type: string
+        verdict:
+          type: string
+          enum: [safe, caution, danger]
+        score:
+          type: integer
+        analysis:
+          type: string
+          description: Plain-language risk analysis from Nodus AI.
+        recommendations:
+          type: array
+          items:
+            type: string
+      required:
+        - target
+        - verdict
+        - score
+        - analysis
+        - recommendations
