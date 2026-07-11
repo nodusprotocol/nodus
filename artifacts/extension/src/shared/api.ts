@@ -1,5 +1,14 @@
 import { getSettings, normalizeBase } from "./config";
-import type { ScanResult, TargetType } from "./types";
+import type { AIAnalyzeResult, ScanResult, TargetType } from "./types";
+
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data?.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export async function scanTarget(
   target: string,
@@ -15,15 +24,32 @@ export async function scanTarget(
   });
 
   if (!res.ok) {
-    let message = `Scan failed (${res.status})`;
-    try {
-      const data = (await res.json()) as { error?: string };
-      if (data?.error) message = data.error;
-    } catch {
-      // ignore non-JSON error bodies
-    }
-    throw new Error(message);
+    throw new Error(await readApiError(res, `Scan failed (${res.status})`));
   }
 
   return (await res.json()) as ScanResult;
+}
+
+export async function analyzeTargetWithAI(
+  target: string,
+  targetType: TargetType = "website",
+): Promise<AIAnalyzeResult> {
+  const { apiBase } = await getSettings();
+  const base = normalizeBase(apiBase);
+
+  const res = await fetch(`${base}/api/ai/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target,
+      targetType,
+      question: "Summarize this target's risk for the browser extension popup.",
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res, `AI summary failed (${res.status})`));
+  }
+
+  return (await res.json()) as AIAnalyzeResult;
 }

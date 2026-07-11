@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { analyzeTargetWithAI } from "../shared/api";
 import { getSettings, normalizeBase } from "../shared/config";
 import { badgeColor, buildSummary, verdictLabel } from "../shared/score";
-import type { GetScanResponse, ScanResult, Settings } from "../shared/types";
+import type { AIAnalyzeResult, GetScanResponse, ScanResult, Settings } from "../shared/types";
 import { submitReport, type ThreatType } from "./report";
 
 interface State {
@@ -10,6 +11,9 @@ interface State {
   url?: string;
   tabId?: number;
   result?: ScanResult;
+  aiSummary?: AIAnalyzeResult;
+  aiLoading?: boolean;
+  aiError?: string;
   error?: string;
   whitelisted?: boolean;
   disabled?: boolean;
@@ -58,7 +62,7 @@ export function Popup() {
       return;
     }
     const resp = await getScan(tab.url, force);
-    setState({
+    const nextState: State = {
       loading: false,
       url: tab.url,
       tabId: tab.id,
@@ -67,7 +71,22 @@ export function Popup() {
       error: resp.error,
       whitelisted: resp.whitelisted,
       disabled: resp.disabled,
-    });
+      aiLoading: Boolean(resp.result),
+    };
+    setState(nextState);
+
+    if (!resp.result) return;
+
+    try {
+      const aiSummary = await analyzeTargetWithAI(resp.result.target, resp.result.targetType);
+      setState((current) => ({ ...current, aiSummary, aiLoading: false, aiError: undefined }));
+    } catch (err) {
+      setState((current) => ({
+        ...current,
+        aiLoading: false,
+        aiError: err instanceof Error ? err.message : "AI summary unavailable.",
+      }));
+    }
   }
 
   useEffect(() => {
@@ -159,6 +178,9 @@ export function Popup() {
       ) : state.result ? (
         <Result
           result={state.result}
+          aiSummary={state.aiSummary}
+          aiLoading={state.aiLoading}
+          aiError={state.aiError}
           rescanning={rescanning}
           onRescan={rescan}
           onReport={() => setReporting(true)}
@@ -175,12 +197,18 @@ export function Popup() {
 
 function Result({
   result,
+  aiSummary,
+  aiLoading,
+  aiError,
   rescanning,
   onRescan,
   onReport,
   onFull,
 }: {
   result: ScanResult;
+  aiSummary?: AIAnalyzeResult;
+  aiLoading?: boolean;
+  aiError?: string;
   rescanning: boolean;
   onRescan: () => void;
   onReport: () => void;
@@ -220,6 +248,8 @@ function Result({
       </div>
 
       <p className="summary">{buildSummary(result)}</p>
+
+      <AISummary summary={aiSummary} loading={aiLoading} error={aiError} />
 
       <div className="signals">
         {result.knownThreat && <span className="chip chip-danger">Known threat</span>}
@@ -262,6 +292,61 @@ function Result({
       </div>
     </div>
   );
+}
+
+function AISummary({
+  summary,
+  loading,
+  error,
+}: {
+  summary?: AIAnalyzeResult;
+  loading?: boolean;
+  error?: string;
+}) {
+  if (loading) {
+    return (
+      <section className="ai-card" aria-live="polite">
+        <div className="ai-card-head">
+          <span>Nodus AI Summary</span>
+          <span className="ai-badge">Thinking…</span>
+        </div>
+        <p className="ai-muted">Generating a plain-language risk summary from live signals.</p>
+      </section>
+    );
+  }
+
+  if (summary?.analysis) {
+    return (
+      <section className="ai-card" aria-live="polite">
+        <div className="ai-card-head">
+          <span>Nodus AI Summary</span>
+          <span className="ai-badge">AI</span>
+        </div>
+        <p className="ai-analysis">{summary.analysis}</p>
+        {summary.recommendations.length > 0 && (
+          <ul className="ai-recs">
+            {summary.recommendations.slice(0, 3).map((rec) => (
+              <li key={rec}>{rec}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="ai-card ai-card-muted" aria-live="polite">
+        <div className="ai-card-head">
+          <span>Nodus AI Summary</span>
+          <span className="ai-badge muted">Offline</span>
+        </div>
+        <p className="ai-muted">{error}</p>
+      </section>
+    );
+  }
+
+  return null;
 }
 
 function ReportForm({

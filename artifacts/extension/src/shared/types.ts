@@ -20,6 +20,14 @@ export interface ScanResult {
   knownThreat: boolean;
 }
 
+export interface AIAnalyzeResult {
+  target: string;
+  verdict: Verdict;
+  score: number;
+  analysis: string;
+  recommendations: string[];
+}
+
 export interface CachedScan {
   result?: ScanResult;
   fetchedAt: number;
