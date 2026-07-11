@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { analyzeTargetWithAI } from "../shared/api";
 import { getSettings, normalizeBase } from "../shared/config";
 import { badgeColor, buildSummary, verdictLabel } from "../shared/score";
-import type { AIAnalyzeResult, GetScanResponse, ScanResult, Settings } from "../shared/types";
+import type {
+  AIAnalyzeResult,
+  GetScanResponse,
+  ScanResult,
+  Settings,
+} from "../shared/types";
 import { submitReport, type ThreatType } from "./report";
 
 interface State {
@@ -39,7 +44,10 @@ function getScan(url: string, force = false): Promise<GetScanResponse> {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "GET_SCAN", url, force }, (resp) => {
       if (chrome.runtime.lastError || !resp) {
-        resolve({ fetchedAt: Date.now(), error: "Background worker unavailable." });
+        resolve({
+          fetchedAt: Date.now(),
+          error: "Background worker unavailable.",
+        });
         return;
       }
       resolve(resp as GetScanResponse);
@@ -78,8 +86,17 @@ export function Popup() {
     if (!resp.result) return;
 
     try {
-      const aiSummary = await analyzeTargetWithAI(resp.result.target, resp.result.targetType);
-      setState((current) => ({ ...current, aiSummary, aiLoading: false, aiError: undefined }));
+      const aiSummary = await analyzeTargetWithAI(
+        resp.result.target,
+        resp.result.targetType,
+        force,
+      );
+      setState((current) => ({
+        ...current,
+        aiSummary,
+        aiLoading: false,
+        aiError: undefined,
+      }));
     } catch (err) {
       setState((current) => ({
         ...current,
@@ -123,7 +140,12 @@ export function Popup() {
             NODUS <span>SHIELD</span>
           </div>
         </div>
-        <button className="icon-btn" title="Settings" onClick={openSettings} aria-label="Settings">
+        <button
+          className="icon-btn"
+          title="Settings"
+          onClick={openSettings}
+          aria-label="Settings"
+        >
           ⚙
         </button>
       </header>
@@ -137,14 +159,17 @@ export function Popup() {
         <div className="state">
           <div className="glyph muted">◎</div>
           <p className="state-title">{state.error}</p>
-          <p className="state-sub">Open a regular website (http/https) to run a scan.</p>
+          <p className="state-sub">
+            Open a regular website (http/https) to run a scan.
+          </p>
         </div>
       ) : state.disabled ? (
         <div className="state">
           <div className="glyph muted">‖</div>
           <p className="state-title">Protection is off</p>
           <p className="state-sub">
-            Real-time scanning is disabled. Turn it back on to scan sites automatically.
+            Real-time scanning is disabled. Turn it back on to scan sites
+            automatically.
           </p>
           <button className="pill pill-primary wide" onClick={openSettings}>
             Open settings
@@ -154,7 +179,9 @@ export function Popup() {
         <div className="state">
           <div className="glyph safe">✓</div>
           <p className="state-title">{state.domain}</p>
-          <p className="state-sub">This site is on your trusted whitelist. Scanning is skipped.</p>
+          <p className="state-sub">
+            This site is on your trusted whitelist. Scanning is skipped.
+          </p>
           <button className="pill pill-ghost wide" onClick={openSettings}>
             Manage whitelist
           </button>
@@ -164,7 +191,11 @@ export function Popup() {
           <div className="glyph muted">!</div>
           <p className="state-title">Couldn't scan {state.domain}</p>
           <p className="state-sub">{state.error}</p>
-          <button className="pill pill-primary wide" onClick={rescan} disabled={rescanning}>
+          <button
+            className="pill pill-primary wide"
+            onClick={rescan}
+            disabled={rescanning}
+          >
             {rescanning ? "Retrying…" : "Try again"}
           </button>
         </div>
@@ -224,7 +255,14 @@ function Result({
 
       <div className="gauge-wrap">
         <svg viewBox="0 0 120 120" className="gauge">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="#ececec" strokeWidth="10" />
+          <circle
+            cx="60"
+            cy="60"
+            r="52"
+            fill="none"
+            stroke="#ececec"
+            strokeWidth="10"
+          />
           <circle
             cx="60"
             cy="60"
@@ -252,9 +290,14 @@ function Result({
       <AISummary summary={aiSummary} loading={aiLoading} error={aiError} />
 
       <div className="signals">
-        {result.knownThreat && <span className="chip chip-danger">Known threat</span>}
-        <span className={`chip ${result.communityReports > 0 ? "chip-warn" : "chip-neutral"}`}>
-          {result.communityReports} community report{result.communityReports === 1 ? "" : "s"}
+        {result.knownThreat && (
+          <span className="chip chip-danger">Known threat</span>
+        )}
+        <span
+          className={`chip ${result.communityReports > 0 ? "chip-warn" : "chip-neutral"}`}
+        >
+          {result.communityReports} community report
+          {result.communityReports === 1 ? "" : "s"}
         </span>
       </div>
 
@@ -265,7 +308,10 @@ function Result({
             <div className="source-head">
               <span className="source-name">{s.source}</span>
               {s.available ? (
-                <span className="source-score" style={{ color: badgeColor(scoreVerdict(s.score)) }}>
+                <span
+                  className="source-score"
+                  style={{ color: badgeColor(scoreVerdict(s.score)) }}
+                >
                   {s.score}
                 </span>
               ) : (
@@ -285,7 +331,11 @@ function Result({
           <button className="pill pill-ghost" onClick={onFull}>
             Full report
           </button>
-          <button className="pill pill-ghost" onClick={onRescan} disabled={rescanning}>
+          <button
+            className="pill pill-ghost"
+            onClick={onRescan}
+            disabled={rescanning}
+          >
             {rescanning ? "Rescanning…" : "Rescan"}
           </button>
         </div>
@@ -310,7 +360,9 @@ function AISummary({
           <span>Nodus AI Summary</span>
           <span className="ai-badge">Thinking…</span>
         </div>
-        <p className="ai-muted">Generating a plain-language risk summary from live signals.</p>
+        <p className="ai-muted">
+          Generating a plain-language risk summary from live signals.
+        </p>
       </section>
     );
   }
@@ -362,7 +414,9 @@ function ReportForm({
 }) {
   const [threatType, setThreatType] = useState<ThreatType>("phishing");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "submitting" | "done" | "error"
+  >("idle");
   const [error, setError] = useState("");
 
   async function submit() {
@@ -373,7 +427,9 @@ function ReportForm({
     }
     if (!apiBase) {
       setStatus("error");
-      setError("Backend URL is not set. Open settings and add the Nodus backend URL.");
+      setError(
+        "Backend URL is not set. Open settings and add the Nodus backend URL.",
+      );
       return;
     }
     setStatus("submitting");
@@ -399,7 +455,8 @@ function ReportForm({
         <div className="glyph safe">✓</div>
         <p className="state-title">Report submitted</p>
         <p className="state-sub">
-          Thank you, Guardian. Your signed report for {domain} is being verified.
+          Thank you, Guardian. Your signed report for {domain} is being
+          verified.
         </p>
         <button className="pill pill-primary wide" onClick={onClose}>
           Done
@@ -446,8 +503,8 @@ function ReportForm({
       />
 
       <p className="rf-note">
-        Submitting prompts a free (gas-less) signature in your Phantom wallet on this page to
-        prove your Guardian identity.
+        Submitting prompts a free (gas-less) signature in your Phantom wallet on
+        this page to prove your Guardian identity.
       </p>
 
       {status === "error" && <p className="rf-error">{error}</p>}
