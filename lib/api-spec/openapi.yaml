@@ -20,6 +20,12 @@ tags:
     description: Guardian network and reputation
   - name: ai
     description: Nodus AI security assistant
+  - name: dao
+    description: DAO governance proposals and voting
+  - name: developers
+    description: Developer API key management
+  - name: public
+    description: Public developer API (X-API-Key authenticated)
 paths:
   /healthz:
     get:
@@ -266,7 +272,474 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /dao/proposals:
+    get:
+      operationId: listProposals
+      tags: [dao]
+      summary: List governance proposals
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, passed, rejected]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proposal"
+    post:
+      operationId: createProposal
+      tags: [dao]
+      summary: Create a governance proposal
+      description: Creates a proposal. Requires a wallet signature binding the proposal title to prevent forgery.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalInput"
+      responses:
+        "201":
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wallet signature invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Signature already used (replay)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /dao/proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [dao]
+      summary: Get a proposal with its votes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Proposal detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /dao/proposals/{id}/vote:
+    post:
+      operationId: voteOnProposal
+      tags: [dao]
+      summary: Vote on a proposal
+      description: Casts a vote (one per wallet per proposal). Requires a wallet signature binding the proposal id and choice.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoteInput"
+      responses:
+        "201":
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wallet signature invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Signature already used (replay)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /developers/keys:
+    get:
+      operationId: listApiKeys
+      tags: [developers]
+      summary: List API keys for a wallet
+      description: Returns key metadata only (prefix, usage). The full key is never returned after creation.
+      parameters:
+        - name: wallet
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyMeta"
+    post:
+      operationId: createApiKey
+      tags: [developers]
+      summary: Create a developer API key
+      description: Issues a new API key for the public Nodus API. Requires a wallet signature. The plaintext key is returned once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "201":
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wallet signature invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Signature already used (replay)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /developers/keys/revoke:
+    post:
+      operationId: revokeApiKey
+      tags: [developers]
+      summary: Revoke a developer API key
+      description: Revokes an API key owned by the signing wallet. Requires a wallet signature binding the key id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyRevokeInput"
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyMeta"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wallet signature invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Signature already used (replay)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /pool/stats:
+    get:
+      operationId: getPoolStats
+      tags: [pool]
+      summary: Security Pool & Treasury statistics
+      description: Derived balances and category breakdown aggregated from the append-only pool ledger.
+      responses:
+        "200":
+          description: Pool statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolStats"
+  /pool/ledger:
+    get:
+      operationId: listPoolLedger
+      tags: [pool]
+      summary: List pool ledger entries
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Ledger entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PoolLedgerEntry"
+  /pool/bounties:
+    get:
+      operationId: listBounties
+      tags: [pool]
+      summary: List bug bounty programs
+      responses:
+        "200":
+          description: Bounty programs with submission counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bounty"
+  /pool/bounties/{id}:
+    get:
+      operationId: getBounty
+      tags: [pool]
+      summary: Get a bounty program with public submissions
+      description: Vulnerability descriptions are never exposed here — only submission metadata.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bounty detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BountyDetail"
+        "404":
+          description: Bounty not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /pool/bounties/{id}/submissions:
+    post:
+      operationId: submitBountyReport
+      tags: [pool]
+      summary: Submit a vulnerability report to a bounty program
+      description: Trust-bearing action. Requires a wallet signature binding the bounty id and report title so the signature cannot be replayed or reused for different content.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BountySubmissionInput"
+      responses:
+        "201":
+          description: Submission recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BountySubmission"
+        "400":
+          description: Invalid input or bounty closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Wallet signature invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Bounty not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Signature already used (replay)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/scan:
+    post:
+      operationId: publicScan
+      tags: [public]
+      summary: "Public API: scan a target"
+      description: Requires an X-API-Key header. Same scan engine as the first-party scanner.
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInput"
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Missing, invalid, or revoked API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Daily quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/threats:
+    get:
+      operationId: publicListThreats
+      tags: [public]
+      summary: "Public API: verified threat feed"
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: threatType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        "200":
+          description: Verified threats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Threat"
+        "401":
+          description: Missing, invalid, or revoked API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Daily quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/stats:
+    get:
+      operationId: publicStats
+      tags: [public]
+      summary: "Public API: platform statistics"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Platform statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicStats"
+        "401":
+          description: Missing, invalid, or revoked API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Daily quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
   schemas:
     HealthStatus:
       type: object
@@ -580,3 +1053,429 @@ components:
         - score
         - analysis
         - recommendations
+    ProposalInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 8
+          maxLength: 160
+        description:
+          type: string
+          minLength: 20
+          maxLength: 5000
+        category:
+          type: string
+          enum: [protocol, treasury, security, community, other]
+        proposerWallet:
+          type: string
+        durationDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: Voting window length in days (1-30).
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the proposer's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message`.
+      required:
+        - title
+        - description
+        - category
+        - proposerWallet
+        - durationDays
+        - message
+        - signature
+    Proposal:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        proposerWallet:
+          type: string
+        status:
+          type: string
+          enum: [active, passed, rejected]
+        votesFor:
+          type: integer
+        votesAgainst:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - category
+        - proposerWallet
+        - status
+        - votesFor
+        - votesAgainst
+        - createdAt
+        - endsAt
+    ProposalVote:
+      type: object
+      properties:
+        id:
+          type: integer
+        proposalId:
+          type: integer
+        voterWallet:
+          type: string
+        choice:
+          type: string
+          enum: [for, against]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - proposalId
+        - voterWallet
+        - choice
+        - createdAt
+    ProposalDetail:
+      type: object
+      properties:
+        proposal:
+          $ref: "#/components/schemas/Proposal"
+        votes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProposalVote"
+      required:
+        - proposal
+        - votes
+    VoteInput:
+      type: object
+      properties:
+        voterWallet:
+          type: string
+        choice:
+          type: string
+          enum: [for, against]
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the voter's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message`.
+      required:
+        - voterWallet
+        - choice
+        - message
+        - signature
+    ApiKeyInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 60
+        ownerWallet:
+          type: string
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the owner's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message`.
+      required:
+        - name
+        - ownerWallet
+        - message
+        - signature
+    ApiKeyMeta:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        keyPrefix:
+          type: string
+          description: First characters of the key for identification. The full key is never stored.
+        ownerWallet:
+          type: string
+        revoked:
+          type: boolean
+        requestCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - name
+        - keyPrefix
+        - ownerWallet
+        - revoked
+        - requestCount
+        - createdAt
+    ApiKeyCreated:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The full API key. Shown exactly once — store it securely.
+        meta:
+          $ref: "#/components/schemas/ApiKeyMeta"
+      required:
+        - key
+        - meta
+    PublicStats:
+      type: object
+      properties:
+        totalThreats:
+          type: integer
+        totalReports:
+          type: integer
+        totalGuardians:
+          type: integer
+      required:
+        - totalThreats
+        - totalReports
+        - totalGuardians
+    PoolLedgerEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        direction:
+          type: string
+          enum: [inflow, outflow]
+        category:
+          type: string
+        amountNodus:
+          type: string
+          description: Amount in $NODUS as a decimal string.
+        description:
+          type: string
+        walletAddress:
+          type: string
+          nullable: true
+        referenceId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - direction
+        - category
+        - amountNodus
+        - description
+        - createdAt
+    PoolCategoryTotal:
+      type: object
+      properties:
+        category:
+          type: string
+        direction:
+          type: string
+          enum: [inflow, outflow]
+        totalNodus:
+          type: string
+      required:
+        - category
+        - direction
+        - totalNodus
+    PoolStats:
+      type: object
+      properties:
+        poolBalanceNodus:
+          type: string
+        totalInflowNodus:
+          type: string
+        totalOutflowNodus:
+          type: string
+        rewardsAccruedNodus:
+          type: string
+          description: Total threat reward accruals paid out of the pool.
+        bountySubmissionsCount:
+          type: integer
+        openBountiesCount:
+          type: integer
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolCategoryTotal"
+        recentEntries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PoolLedgerEntry"
+        onchainTreasury:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/OnchainTreasury"
+      required:
+        - poolBalanceNodus
+        - totalInflowNodus
+        - totalOutflowNodus
+        - rewardsAccruedNodus
+        - bountySubmissionsCount
+        - openBountiesCount
+        - byCategory
+        - recentEntries
+    OnchainTreasury:
+      type: object
+      description: Live on-chain treasury balance. The wallet address is intentionally not exposed.
+      properties:
+        solBalance:
+          type: string
+        network:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - solBalance
+        - network
+        - updatedAt
+    Bounty:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        scope:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        rewardMinNodus:
+          type: string
+        rewardMaxNodus:
+          type: string
+        status:
+          type: string
+          enum: [open, closed]
+        submissionsCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - slug
+        - title
+        - description
+        - scope
+        - severity
+        - rewardMinNodus
+        - rewardMaxNodus
+        - status
+        - submissionsCount
+        - createdAt
+    BountySubmission:
+      type: object
+      description: Public view of a submission. Vulnerability details are intentionally omitted.
+      properties:
+        id:
+          type: integer
+        bountyId:
+          type: integer
+        walletAddress:
+          type: string
+        title:
+          type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        status:
+          type: string
+          enum: [pending, triaged, accepted, rejected, paid]
+        rewardNodus:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - bountyId
+        - walletAddress
+        - title
+        - severity
+        - status
+        - createdAt
+    BountyDetail:
+      type: object
+      properties:
+        bounty:
+          $ref: "#/components/schemas/Bounty"
+        submissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/BountySubmission"
+      required:
+        - bounty
+        - submissions
+    BountySubmissionInput:
+      type: object
+      properties:
+        walletAddress:
+          type: string
+        title:
+          type: string
+          minLength: 8
+          maxLength: 160
+        description:
+          type: string
+          minLength: 40
+          maxLength: 10000
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the researcher's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message`.
+      required:
+        - walletAddress
+        - title
+        - description
+        - severity
+        - message
+        - signature
+    ApiKeyRevokeInput:
+      type: object
+      properties:
+        keyId:
+          type: integer
+        ownerWallet:
+          type: string
+        message:
+          type: string
+          description: The exact UTF-8 message signed by the owner's wallet.
+        signature:
+          type: string
+          description: Base58 ed25519 signature of `message`.
+      required:
+        - keyId
+        - ownerWallet
+        - message
+        - signature
