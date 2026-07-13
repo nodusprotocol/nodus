@@ -5,3 +5,7 @@ export * from "./reputationEvents";
 export * from "./reputationScores";
 export * from "./usedSignatures";
 export * from "./scanCache";
+export * from "./proposals";
+export * from "./apiKeys";
+export * from "./poolLedger";
+export * from "./bounties";
